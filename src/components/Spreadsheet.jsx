@@ -186,7 +186,7 @@ function Spreadsheet() {
   const handleOpen = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json';
+    input.accept = '.xlsx,.xls';
     
     input.onchange = (e) => {
       const file = e.target.files[0];
@@ -194,15 +194,64 @@ function Spreadsheet() {
         const reader = new FileReader();
         reader.onload = (event) => {
           try {
-            const data = JSON.parse(event.target.result);
-            setCellData(data.cellData || {});
-            setCellValidations(data.cellValidations || {});
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // Get the first worksheet
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Convert the worksheet to an array of arrays
+            const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            // Convert the array data back to our cell format
+            const newCellData = {};
+            const newCellValidations = {};
+            
+            sheetData.forEach((row, rowIndex) => {
+              row.forEach((cellValue, colIndex) => {
+                if (cellValue !== null && cellValue !== undefined) {
+                  const cellId = `${XLSX.utils.encode_col(colIndex)}${rowIndex + 1}`;
+                  
+                  // Get cell style information
+                  const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+                  const cell = worksheet[cellRef];
+                  const cellStyle = cell?.s || {};
+                  
+                  // Create cell format object
+                  const format = {
+                    bold: cellStyle.font?.bold || false,
+                    italic: cellStyle.font?.italic || false,
+                    fontSize: cellStyle.font?.sz || 14,
+                    color: cellStyle.font?.color?.rgb ? `#${cellStyle.font.color.rgb}` : '#000000'
+                  };
+                  
+                  // Determine data type
+                  let dataType = 'text';
+                  if (typeof cellValue === 'number') dataType = 'number';
+                  else if (cellValue instanceof Date) dataType = 'date';
+                  
+                  // Store cell data
+                  newCellData[cellId] = {
+                    value: cellValue.toString(),
+                    format,
+                    displayValue: cellValue.toString()
+                  };
+                  
+                  // Store cell validation
+                  newCellValidations[cellId] = dataType;
+                }
+              });
+            });
+            
+            setCellData(newCellData);
+            setCellValidations(newCellValidations);
           } catch (error) {
-            console.error('Error reading file:', error);
-            alert('Invalid file format');
+            console.error('Error reading Excel file:', error);
+            alert('Error reading Excel file. Please make sure it\'s a valid Excel file.');
           }
         };
-        reader.readAsText(file);
+        reader.readAsArrayBuffer(file);
       }
     };
     
