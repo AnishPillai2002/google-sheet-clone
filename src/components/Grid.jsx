@@ -3,6 +3,7 @@ import Cell from './Cell';
 import ContextMenu from './ContextMenu';
 import ResizeHandle from './ResizeHandle';
 import { spreadsheetFunctions } from '../utils/spreadsheetFunctions';
+import DeleteDuplicatesModal from './DeleteDuplicatesModal';
 
 function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange }) {
   const ROWS = 100;
@@ -17,6 +18,8 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
   const [selectedRange, setSelectedRange] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [contextCell, setContextCell] = useState(null);
+  const [showDeleteDuplicatesModal, setShowDeleteDuplicatesModal] = useState(false);
+  const [selectedColumns, setSelectedColumns] = useState([]);
 
   const getColumnWidth = (col) => columnWidths[col] || 120;
   const getRowHeight = (row) => rowHeights[row] || 24;
@@ -32,6 +35,52 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
     const colIndex = col.split('').reduce((acc, char) => 
       acc * 26 + char.charCodeAt(0) - 65, 0);
     return { row, col: colIndex };
+  };
+
+  const getUniqueRowKey = (rowIndex, columns) => {
+    return columns.map(col => {
+      const cellId = getCellId(rowIndex, col.charCodeAt(0) - 65);
+      return cellData[cellId]?.value || '';
+    }).join('|');
+  };
+
+  const handleDeleteDuplicates = (columns) => {
+    const newCellData = { ...cellData };
+    const rowsInRange = new Set(selectedRange.map(cellId => 
+      parseInt(cellId.match(/\d+/)[0]) - 1
+    ));
+    
+    // Create a map of unique rows
+    const uniqueRows = new Map();
+    const rowsToDelete = new Set();
+    
+    [...rowsInRange].sort((a, b) => a - b).forEach(row => {
+      const key = getUniqueRowKey(row, columns);
+      if (uniqueRows.has(key)) {
+        rowsToDelete.add(row);
+      } else {
+        uniqueRows.set(key, row);
+      }
+    });
+    
+    // Delete duplicate rows
+    [...rowsToDelete].sort((a, b) => b - a).forEach(row => {
+      for (let currentRow = row; currentRow < ROWS - 1; currentRow++) {
+        for (let col = 0; col < COLS; col++) {
+          const currentCellId = getCellId(currentRow, col);
+          const nextCellId = getCellId(currentRow + 1, col);
+          
+          if (cellData[nextCellId]) {
+            newCellData[currentCellId] = { ...cellData[nextCellId] };
+          } else {
+            delete newCellData[currentCellId];
+          }
+        }
+      }
+    });
+    
+    onGridChange(newCellData);
+    setShowDeleteDuplicatesModal(false);
   };
 
   const handleDragStart = useCallback((cellId) => {
@@ -218,10 +267,22 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
         }
         break;
       }
+
+      case 'deleteDuplicates': {
+        const uniqueColumns = [...new Set(selectedRange.map(cellId => 
+          cellId.match(/[A-Z]+/)[0]
+        ))].sort();
+        setSelectedColumns(uniqueColumns);
+        setShowDeleteDuplicatesModal(true);
+        setContextMenu(null);
+        break;
+      }
     }
     
-    onGridChange(newCellData);
-  }, [contextCell, cellData, onGridChange, ROWS, COLS, selectedCell, onCellSelect]);
+    if (action !== 'deleteDuplicates') {
+      onGridChange(newCellData);
+    }
+  }, [contextCell, cellData, onGridChange, ROWS, COLS, selectedCell, onCellSelect, selectedRange]);
 
   const handleResizeStart = useCallback((type, index, e) => {
     e.preventDefault();
@@ -399,6 +460,15 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
           onAction={handleContextAction}
+          hasSelection={selectedRange?.length > 0}
+        />
+      )}
+      {showDeleteDuplicatesModal && (
+        <DeleteDuplicatesModal
+          columns={selectedColumns}
+          cellData={cellData}
+          onConfirm={handleDeleteDuplicates}
+          onClose={() => setShowDeleteDuplicatesModal(false)}
         />
       )}
     </div>
