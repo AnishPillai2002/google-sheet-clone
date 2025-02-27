@@ -291,8 +291,8 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
   // Helper to evaluate formula
   const evaluateFormula = useCallback((formula) => {
     try {
-      // Match function pattern: FUNCTION(START:END)
-      const match = formula.match(/^=(\w+)\(([A-Z]+\d+),([A-Z]+\d+)\)$/);
+      // Match both patterns: FUNCTION(START,END) and FUNCTION(CELL)
+      const match = formula.match(/^=(\w+)\(([A-Z]+\d+)(?:,([A-Z]+\d+))?\)$/);
       if (!match) return formula;
 
       const [_, functionName, startCell, endCell] = match;
@@ -300,7 +300,20 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
 
       if (!fn) return '#ERROR!';
       
-      return fn(startCell, endCell, cellData, evaluateFormula);
+      // Get result from function
+      let result;
+      // Text functions only need one cell reference
+      if (['TRIM', 'UPPER', 'LOWER', 'PROPER'].includes(functionName)) {
+        result = fn(startCell, null, cellData, evaluateFormula);
+      } else {
+        // Math functions need both cell references
+        if (!endCell) return '#ERROR!';
+        result = fn(startCell, endCell, cellData, evaluateFormula);
+      }
+      
+      // Convert result to string to ensure consistent handling
+      return result !== undefined ? result.toString() : '#ERROR!';
+      
     } catch (error) {
       return '#ERROR!';
     }

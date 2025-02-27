@@ -3,7 +3,11 @@ export const FUNCTION_DESCRIPTIONS = {
   AVERAGE: 'Calculates the average of a range of cells',
   MAX: 'Returns the maximum value from a range of cells',
   MIN: 'Returns the minimum value from a range of cells',
-  COUNT: 'Counts the number of cells containing numerical values'
+  COUNT: 'Counts the number of cells containing numerical values',
+  TRIM: 'Removes leading and trailing whitespace from text',
+  UPPER: 'Converts text to uppercase',
+  LOWER: 'Converts text to lowercase',
+  PROPER: 'Converts text to proper case (Capitalizes First Letter Of Each Word)'
 };
 
 // Helper to get cell range from function parameters
@@ -49,6 +53,19 @@ const getCellValues = (range, cellData, evaluateFormula) => {
   return values;
 };
 
+// Helper to get single cell value
+const getCellValue = (cellId, cellData, evaluateFormula) => {
+  const value = cellData[cellId]?.value;
+  
+  // If the cell contains a formula, evaluate it first
+  if (value && value.startsWith('=')) {
+    const result = evaluateFormula(value);
+    return result === '#ERROR!' ? '' : result.toString();
+  }
+  
+  return value !== undefined ? value.toString() : '';
+};
+
 export const spreadsheetFunctions = {
   SUM: (startCell, endCell, cellData, evaluateFormula) => {
     const range = getCellRange(startCell, endCell);
@@ -81,5 +98,33 @@ export const spreadsheetFunctions = {
     const range = getCellRange(startCell, endCell);
     const values = getCellValues(range, cellData, evaluateFormula);
     return values.length;
+  },
+  
+  TRIM: (cellId, _, cellData, evaluateFormula) => {
+    const value = getCellValue(cellId, cellData, evaluateFormula);
+    if (!value) return '';
+    return value.trim();
+  },
+  
+  UPPER: (cellId, _, cellData, evaluateFormula) => {
+    const value = getCellValue(cellId, cellData, evaluateFormula);
+    if (!value) return '';
+    return value.toUpperCase();
+  },
+  
+  LOWER: (cellId, _, cellData, evaluateFormula) => {
+    const value = getCellValue(cellId, cellData, evaluateFormula);
+    if (!value) return '';
+    return value.toLowerCase();
+  },
+  
+  PROPER: (cellId, _, cellData, evaluateFormula) => {
+    const value = getCellValue(cellId, cellData, evaluateFormula);
+    if (!value) return '';
+    return value
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 }; 

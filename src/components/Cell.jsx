@@ -57,10 +57,7 @@ function Cell({
   const handleChange = (e) => {
     const newValue = e.target.value;
     setEditValue(newValue);
-    if (newValue === '=' || 
-        (newValue.startsWith('=') && 
-         !newValue.includes('(') && 
-         newValue.length > 1)) {
+    if (newValue === '=' || newValue.match(/^=[A-Za-z]*$/)) {
       setShowSuggestions(true);
       setSelectedSuggestionIndex(0);
     } else {
@@ -89,6 +86,7 @@ function Cell({
           .slice(0, 5);
         if (suggestions[selectedSuggestionIndex]) {
           handleSuggestionSelect(`=${suggestions[selectedSuggestionIndex]}`);
+          e.preventDefault();
         }
       } else {
         handleBlur();
@@ -175,8 +173,10 @@ function Cell({
               onSelect={handleSuggestionSelect}
               selectedIndex={selectedSuggestionIndex}
               position={{
-                top: cellRef.current?.offsetTop || 0,
-                left: cellRef.current?.offsetLeft || 0
+                top: cellRef.current?.getBoundingClientRect().top || 0,
+                left: cellRef.current?.getBoundingClientRect().left || 0,
+                height: height,
+                width: width
               }}
             />
           )}
