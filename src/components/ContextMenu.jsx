@@ -4,6 +4,8 @@ function ContextMenu({ x, y, onClose, onAction }) {
   const menuItems = [
     { id: 'insertRowBelow', label: 'Insert row below' },
     { id: 'insertColumnRight', label: 'Insert column right' },
+    { id: 'deleteRow', label: 'Delete row' },
+    { id: 'deleteColumn', label: 'Delete column' }
   ];
 
   return (

@@ -161,10 +161,66 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
         }
         break;
       }
+
+      case 'deleteRow': {
+        // Move all rows below up by one
+        for (let currentRow = row; currentRow < ROWS - 1; currentRow++) {
+          for (let currentCol = 0; currentCol < COLS; currentCol++) {
+            const nextRowCellId = getCellId(currentRow + 1, currentCol);
+            const currentCellId = getCellId(currentRow, currentCol);
+            
+            if (cellData[nextRowCellId]) {
+              newCellData[currentCellId] = { ...cellData[nextRowCellId] };
+            } else {
+              delete newCellData[currentCellId];
+            }
+          }
+        }
+        
+        // Clear the last row
+        for (let currentCol = 0; currentCol < COLS; currentCol++) {
+          const lastRowCellId = getCellId(ROWS - 1, currentCol);
+          delete newCellData[lastRowCellId];
+        }
+        
+        // If the selected cell was in the deleted row, update selection
+        if (selectedCell && getCellCoords(selectedCell).row === row) {
+          onCellSelect(null);
+        }
+        break;
+      }
+      
+      case 'deleteColumn': {
+        // Move all columns to the right left by one
+        for (let currentCol = col; currentCol < COLS - 1; currentCol++) {
+          for (let currentRow = 0; currentRow < ROWS; currentRow++) {
+            const nextColCellId = getCellId(currentRow, currentCol + 1);
+            const currentCellId = getCellId(currentRow, currentCol);
+            
+            if (cellData[nextColCellId]) {
+              newCellData[currentCellId] = { ...cellData[nextColCellId] };
+            } else {
+              delete newCellData[currentCellId];
+            }
+          }
+        }
+        
+        // Clear the last column
+        for (let currentRow = 0; currentRow < ROWS; currentRow++) {
+          const lastColCellId = getCellId(currentRow, COLS - 1);
+          delete newCellData[lastColCellId];
+        }
+        
+        // If the selected cell was in the deleted column, update selection
+        if (selectedCell && getCellCoords(selectedCell).col === col) {
+          onCellSelect(null);
+        }
+        break;
+      }
     }
     
     onGridChange(newCellData);
-  }, [contextCell, cellData, onGridChange, ROWS, COLS]);
+  }, [contextCell, cellData, onGridChange, ROWS, COLS, selectedCell, onCellSelect]);
 
   const handleResizeStart = useCallback((type, index, e) => {
     e.preventDefault();
