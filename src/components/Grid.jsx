@@ -89,17 +89,35 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
     
     switch (action) {
       case 'insertRowBelow': {
+        // First preserve the selected row's data
+        const selectedRowData = {};
+        for (let currentCol = 0; currentCol < COLS; currentCol++) {
+          const selectedCellId = getCellId(row, currentCol);
+          if (cellData[selectedCellId]) {
+            selectedRowData[selectedCellId] = { ...cellData[selectedCellId] };
+          }
+        }
+
         // Start from the bottom and move each row down by one
         for (let currentRow = ROWS - 1; currentRow > row; currentRow--) {
           for (let currentCol = 0; currentCol < COLS; currentCol++) {
             const currentCellId = getCellId(currentRow - 1, currentCol);
             const newCellId = getCellId(currentRow, currentCol);
             if (cellData[currentCellId]) {
-              newCellData[newCellId] = cellData[currentCellId];
+              newCellData[newCellId] = { ...cellData[currentCellId] };
+              delete newCellData[currentCellId];
+            } else {
+              delete newCellData[newCellId];
             }
           }
         }
-        // Clear the newly inserted row
+
+        // Restore the selected row's data
+        Object.entries(selectedRowData).forEach(([cellId, data]) => {
+          newCellData[cellId] = data;
+        });
+
+        // Ensure the new row is empty
         for (let currentCol = 0; currentCol < COLS; currentCol++) {
           const newCellId = getCellId(row + 1, currentCol);
           delete newCellData[newCellId];
@@ -108,17 +126,35 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
       }
       
       case 'insertColumnRight': {
+        // First preserve the selected column's data
+        const selectedColData = {};
+        for (let currentRow = 0; currentRow < ROWS; currentRow++) {
+          const selectedCellId = getCellId(currentRow, col);
+          if (cellData[selectedCellId]) {
+            selectedColData[selectedCellId] = { ...cellData[selectedCellId] };
+          }
+        }
+
         // Start from the rightmost column and move each column right by one
         for (let currentCol = COLS - 1; currentCol > col; currentCol--) {
           for (let currentRow = 0; currentRow < ROWS; currentRow++) {
             const currentCellId = getCellId(currentRow, currentCol - 1);
             const newCellId = getCellId(currentRow, currentCol);
             if (cellData[currentCellId]) {
-              newCellData[newCellId] = cellData[currentCellId];
+              newCellData[newCellId] = { ...cellData[currentCellId] };
+              delete newCellData[currentCellId];
+            } else {
+              delete newCellData[newCellId];
             }
           }
         }
-        // Clear the newly inserted column
+
+        // Restore the selected column's data
+        Object.entries(selectedColData).forEach(([cellId, data]) => {
+          newCellData[cellId] = data;
+        });
+
+        // Ensure the new column is empty
         for (let currentRow = 0; currentRow < ROWS; currentRow++) {
           const newCellId = getCellId(currentRow, col + 1);
           delete newCellData[newCellId];
