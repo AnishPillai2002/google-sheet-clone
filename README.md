@@ -251,7 +251,7 @@ const evaluateFormula = (formula) => {
 
 1. Clone the repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/AnishPillai2002/google-sheet-clone
 ```
 
 2. Install dependencies
@@ -266,22 +266,7 @@ npm run dev
 
 ## 📝 Usage Examples
 
-### 1. Basic Cell Operations
-```javascript
-// Enter values
-A1: "Hello"
-B1: 123
-
-// Use formulas
-C1: "=SUM(A1:B1)"
-D1: "=AVERAGE(A1:B1)"
-
-// Format cells
-A1: { bold: true, fontSize: 16 }
-B1: { italic: true, color: "#FF0000" }
-```
-
-### 2. Text Functions
+### 1. Text Functions
 ```javascript
 // Text manipulation
 A1: "  Hello world  "
@@ -291,7 +276,7 @@ D1: "=PROPER(A1)"    // "Hello World"
 E1: "=LOWER(A1)" // "hello world"
 ```
 
-### 3. Mathematical Functions
+### 2. Mathematical Functions
 ```javascript
 // Basic calculations
 A1: 10
@@ -305,7 +290,7 @@ A8: "=COUNT(A1:A3)"    // Result: 3
 ```
 
 
-### 4. Delete Duplicates
+### 3. Delete Duplicates
 ```javascript
 // Example data:
 A1: "Name"    B1: "Age"
@@ -321,7 +306,7 @@ A2: "John"    B2: "25"
 A3: "Jane"    B3: "30"
 ```
 
-### 5. Cell Formatting
+### 4. Cell Formatting
 ```javascript
 // Apply multiple formats
 cellFormat: {
@@ -337,7 +322,7 @@ selectedRange.forEach(cellId => {
 });
 ```
 
-### 6. Nested Formulas
+### 5. Nested Formulas
 ```javascript
 // Complex calculations
 A1: 10
