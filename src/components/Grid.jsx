@@ -5,7 +5,7 @@ import ResizeHandle from './ResizeHandle';
 import { spreadsheetFunctions } from '../utils/spreadsheetFunctions';
 import DeleteDuplicatesModal from './DeleteDuplicatesModal';
 
-function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange }) {
+function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange, onRangeSelect }) {
   const ROWS = 100;
   const COLS = 26; // A to Z
 
@@ -111,8 +111,9 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
         }
       }
       setSelectedRange(range);
+      onRangeSelect(range);
     }
-  }, [isDragging, dragStart]);
+  }, [isDragging, dragStart, onRangeSelect]);
 
   const handleDragEnd = useCallback(() => {
     setIsDragging(false);
@@ -282,7 +283,7 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
     if (action !== 'deleteDuplicates') {
       onGridChange(newCellData);
     }
-  }, [contextCell, cellData, onGridChange, ROWS, COLS, selectedCell, onCellSelect, selectedRange]);
+  }, [contextCell, cellData, onGridChange, ROWS, COLS, selectedCell, onCellSelect, selectedRange, onRangeSelect]);
 
   const handleResizeStart = useCallback((type, index, e) => {
     e.preventDefault();

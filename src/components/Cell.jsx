@@ -136,6 +136,7 @@ function Cell({
   return (
     <div
       ref={cellRef}
+      data-cell-id={id}
       className={`border-b border-r border-gray-300 relative
         ${isSelected ? 'ring-2 ring-blue-500 z-10' : ''}
         ${isInRange ? 'bg-blue-50 ring-1 ring-blue-400' : ''}
