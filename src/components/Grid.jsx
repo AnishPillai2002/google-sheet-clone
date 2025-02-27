@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import Cell from './Cell';
 import ContextMenu from './ContextMenu';
 import ResizeHandle from './ResizeHandle';
+import { spreadsheetFunctions } from '../utils/spreadsheetFunctions';
 
 function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange }) {
   const ROWS = 100;
@@ -287,6 +288,24 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
+  // Helper to evaluate formula
+  const evaluateFormula = useCallback((formula) => {
+    try {
+      // Match function pattern: FUNCTION(START:END)
+      const match = formula.match(/^=(\w+)\(([A-Z]+\d+),([A-Z]+\d+)\)$/);
+      if (!match) return formula;
+
+      const [_, functionName, startCell, endCell] = match;
+      const fn = spreadsheetFunctions[functionName];
+
+      if (!fn) return '#ERROR!';
+      
+      return fn(startCell, endCell, cellData, evaluateFormula);
+    } catch (error) {
+      return '#ERROR!';
+    }
+  }, [cellData]);
+
   return (
     <div className="flex-1 overflow-auto relative">
       <div className="inline-block min-w-full">
@@ -334,11 +353,17 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
             </div>
             {Array.from({ length: COLS }).map((_, col) => {
               const cellId = getCellId(row, col);
+              const rawValue = cellData[cellId]?.value || '';
+              const displayValue = rawValue.startsWith('=') ? 
+                evaluateFormula(rawValue) : 
+                rawValue;
+              
               return (
                 <Cell
                   key={cellId}
                   id={cellId}
-                  value={cellData[cellId]?.value || ''}
+                  value={rawValue}
+                  displayValue={displayValue}
                   format={cellData[cellId]?.format}
                   isSelected={selectedCell === cellId}
                   isInRange={selectedRange?.includes(cellId)}
