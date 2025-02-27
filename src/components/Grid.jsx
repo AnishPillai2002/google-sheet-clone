@@ -1,14 +1,24 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import Cell from './Cell';
+import ContextMenu from './ContextMenu';
+import ResizeHandle from './ResizeHandle';
 
-function Grid({ selectedCell, cellData, onCellSelect, onCellChange }) {
+function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange }) {
   const ROWS = 100;
   const COLS = 26; // A to Z
 
+  const [columnWidths, setColumnWidths] = useState({});
+  const [rowHeights, setRowHeights] = useState({});
+  const [resizing, setResizing] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const [dragEnd, setDragEnd] = useState(null);
   const [selectedRange, setSelectedRange] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [contextCell, setContextCell] = useState(null);
+
+  const getColumnWidth = (col) => columnWidths[col] || 120;
+  const getRowHeight = (row) => rowHeights[row] || 24;
 
   const getCellId = (row, col) => {
     const colLetter = String.fromCharCode(65 + col);
@@ -65,6 +75,105 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange }) {
     onCellSelect(cellId);
   }, [onCellSelect]);
 
+  const handleContextMenu = useCallback((e, cellId) => {
+    e.preventDefault();
+    setContextMenu({ x: e.pageX, y: e.pageY });
+    setContextCell(cellId);
+  }, []);
+
+  const handleContextAction = useCallback((action) => {
+    if (!contextCell) return;
+    
+    const { row, col } = getCellCoords(contextCell);
+    const newCellData = { ...cellData };
+    
+    switch (action) {
+      case 'insertRowBelow': {
+        // Start from the bottom and move each row down by one
+        for (let currentRow = ROWS - 1; currentRow > row; currentRow--) {
+          for (let currentCol = 0; currentCol < COLS; currentCol++) {
+            const currentCellId = getCellId(currentRow - 1, currentCol);
+            const newCellId = getCellId(currentRow, currentCol);
+            if (cellData[currentCellId]) {
+              newCellData[newCellId] = cellData[currentCellId];
+            }
+          }
+        }
+        // Clear the newly inserted row
+        for (let currentCol = 0; currentCol < COLS; currentCol++) {
+          const newCellId = getCellId(row + 1, currentCol);
+          delete newCellData[newCellId];
+        }
+        break;
+      }
+      
+      case 'insertColumnRight': {
+        // Start from the rightmost column and move each column right by one
+        for (let currentCol = COLS - 1; currentCol > col; currentCol--) {
+          for (let currentRow = 0; currentRow < ROWS; currentRow++) {
+            const currentCellId = getCellId(currentRow, currentCol - 1);
+            const newCellId = getCellId(currentRow, currentCol);
+            if (cellData[currentCellId]) {
+              newCellData[newCellId] = cellData[currentCellId];
+            }
+          }
+        }
+        // Clear the newly inserted column
+        for (let currentRow = 0; currentRow < ROWS; currentRow++) {
+          const newCellId = getCellId(currentRow, col + 1);
+          delete newCellData[newCellId];
+        }
+        break;
+      }
+    }
+    
+    onGridChange(newCellData);
+  }, [contextCell, cellData, onGridChange, ROWS, COLS]);
+
+  const handleResizeStart = useCallback((type, index, e) => {
+    e.preventDefault();
+    const startPos = type === 'column' ? e.clientX : e.clientY;
+    const startSize = type === 'column' ? 
+      getColumnWidth(index) : getRowHeight(index);
+    
+    setResizing({ type, index, startPos, startSize });
+  }, []);
+
+  const handleResize = useCallback((e) => {
+    if (!resizing) return;
+    
+    const { type, index, startPos, startSize } = resizing;
+    const currentPos = type === 'column' ? e.clientX : e.clientY;
+    const diff = currentPos - startPos;
+    
+    if (type === 'column') {
+      setColumnWidths(prev => ({
+        ...prev,
+        [index]: Math.max(50, startSize + diff)
+      }));
+    } else {
+      setRowHeights(prev => ({
+        ...prev,
+        [index]: Math.max(20, startSize + diff)
+      }));
+    }
+  }, [resizing]);
+
+  const handleResizeEnd = useCallback(() => {
+    setResizing(null);
+  }, []);
+
+  useEffect(() => {
+    if (resizing) {
+      window.addEventListener('mousemove', handleResize);
+      window.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleResize);
+        window.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [resizing, handleResize, handleResizeEnd]);
+
   useEffect(() => {
     const handleMouseUp = () => {
       if (isDragging) {
@@ -76,19 +185,39 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange }) {
     return () => window.removeEventListener('mouseup', handleMouseUp);
   }, [isDragging, handleDragEnd]);
 
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setContextMenu(null);
+      setContextCell(null);
+    };
+    
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
   return (
     <div className="flex-1 overflow-auto relative">
       <div className="inline-block min-w-full">
         {/* Header Row */}
         <div className="flex sticky top-0 z-10">
-          <div className="w-[40px] h-[24px] bg-gray-50 border-b border-r border-gray-300 flex items-center justify-center" />
+          <div className="w-[40px] h-[24px] bg-gray-50 border-b border-r border-gray-300 
+                       flex items-center justify-center relative" />
           {Array.from({ length: COLS }).map((_, col) => (
             <div 
               key={col} 
-              className="w-[120px] h-[24px] bg-gray-50 border-b border-r border-gray-300 
-                       flex items-center justify-center text-sm font-medium text-gray-700"
+              className="bg-gray-50 border-b border-r border-gray-300 
+                       flex items-center justify-center text-sm font-medium text-gray-700
+                       relative"
+              style={{ 
+                width: `${getColumnWidth(col)}px`,
+                height: '24px'
+              }}
             >
               {String.fromCharCode(65 + col)}
+              <ResizeHandle
+                type="column"
+                onMouseDown={(e) => handleResizeStart('column', col, e)}
+              />
             </div>
           ))}
         </div>
@@ -97,10 +226,19 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange }) {
         {Array.from({ length: ROWS }).map((_, row) => (
           <div key={row} className="flex relative">
             <div 
-              className="w-[40px] h-[24px] bg-gray-50 border-b border-r border-gray-300 
-                       sticky left-0 flex items-center justify-center text-sm font-medium text-gray-700"
+              className="bg-gray-50 border-b border-r border-gray-300 
+                       sticky left-0 flex items-center justify-center 
+                       text-sm font-medium text-gray-700 relative"
+              style={{ 
+                width: '40px',
+                height: `${getRowHeight(row)}px`
+              }}
             >
               {row + 1}
+              <ResizeHandle
+                type="row"
+                onMouseDown={(e) => handleResizeStart('row', row, e)}
+              />
             </div>
             {Array.from({ length: COLS }).map((_, col) => {
               const cellId = getCellId(row, col);
@@ -109,18 +247,30 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange }) {
                   key={cellId}
                   id={cellId}
                   value={cellData[cellId]?.value || ''}
+                  format={cellData[cellId]?.format}
                   isSelected={selectedCell === cellId}
                   isInRange={selectedRange?.includes(cellId)}
                   onSelect={() => handleCellClick(cellId)}
                   onChange={(value) => onCellChange(cellId, value)}
                   onDragStart={() => handleDragStart(cellId)}
                   onDragEnter={() => handleDragEnter(cellId)}
+                  onContextMenu={(e) => handleContextMenu(e, cellId)}
+                  width={getColumnWidth(col)}
+                  height={getRowHeight(row)}
                 />
               );
             })}
           </div>
         ))}
       </div>
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onAction={handleContextAction}
+        />
+      )}
     </div>
   );
 }

@@ -5,39 +5,55 @@ import Grid from './Grid';
 
 function Spreadsheet() {
   const [selectedCell, setSelectedCell] = useState(null);
-  const [cellValues, setCellValues] = useState({});
+  const [cellData, setCellData] = useState({});
   const [formulaValue, setFormulaValue] = useState('');
 
   const handleCellSelect = (cellId) => {
     setSelectedCell(cellId);
-    setFormulaValue(cellValues[cellId]?.value || '');
-  };
-
-  const handleFormulaChange = (value) => {
-    setFormulaValue(value);
-    if (selectedCell) {
-      setCellValues(prev => ({
-        ...prev,
-        [selectedCell]: { value, formula: value.startsWith('=') ? value : '' }
-      }));
-    }
+    setFormulaValue(cellData[cellId]?.value || '');
   };
 
   const handleFormatChange = (format) => {
     if (selectedCell) {
-      setCellValues(prev => ({
+      setCellData(prev => ({
         ...prev,
         [selectedCell]: {
           ...prev[selectedCell],
-          format: { ...(prev[selectedCell]?.format || {}), ...format }
+          format: {
+            ...(prev[selectedCell]?.format || {}),
+            ...format
+          }
         }
       }));
     }
   };
 
+  const handleFormulaChange = (value) => {
+    setFormulaValue(value);
+    if (selectedCell) {
+      setCellData(prev => ({
+        ...prev,
+        [selectedCell]: {
+          ...prev[selectedCell],
+          value,
+          formula: value.startsWith('=') ? value : '',
+          format: prev[selectedCell]?.format || {}
+        }
+      }));
+    }
+  };
+
+  const handleGridChange = (newCellData) => {
+    setCellData(newCellData);
+  };
+
   return (
     <div className="flex flex-col h-full">
-      <Toolbar onFormatChange={handleFormatChange} />
+      <Toolbar 
+        onFormatChange={handleFormatChange}
+        selectedCell={selectedCell}
+        cellFormat={cellData[selectedCell]?.format}
+      />
       <FormulaBar 
         selectedCell={selectedCell}
         value={formulaValue}
@@ -45,17 +61,23 @@ function Spreadsheet() {
       />
       <Grid 
         selectedCell={selectedCell}
-        cellData={cellValues}
+        cellData={cellData}
         onCellSelect={handleCellSelect}
         onCellChange={(cellId, value) => {
-          setCellValues(prev => ({
+          setCellData(prev => ({
             ...prev,
-            [cellId]: { value, formula: value.startsWith('=') ? value : '' }
+            [cellId]: {
+              ...prev[cellId],
+              value,
+              formula: value.startsWith('=') ? value : '',
+              format: prev[cellId]?.format || {}
+            }
           }));
           if (cellId === selectedCell) {
             setFormulaValue(value);
           }
         }}
+        onGridChange={handleGridChange}
       />
     </div>
   );

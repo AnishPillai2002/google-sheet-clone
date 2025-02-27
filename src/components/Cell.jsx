@@ -8,11 +8,22 @@ function Cell({
   onSelect, 
   onChange,
   onDragStart,
-  onDragEnter 
+  onDragEnter,
+  onContextMenu,
+  width,
+  height,
+  format = {}
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef(null);
+
+  const {
+    bold = false,
+    italic = false,
+    fontSize = 14,
+    color = '#000000'
+  } = format;
 
   useEffect(() => {
     setEditValue(value);
@@ -49,14 +60,19 @@ function Cell({
 
   return (
     <div
-      className={`w-[120px] h-[24px] border-b border-r border-gray-300 relative
+      className={`border-b border-r border-gray-300 relative
         ${isSelected ? 'ring-2 ring-blue-500 z-10' : ''}
         ${isInRange ? 'bg-blue-50 ring-1 ring-blue-400' : ''}
         ${isEditing ? 'z-20' : ''}`}
+      style={{
+        width: `${width}px`,
+        height: `${height}px`,
+      }}
       onClick={onSelect}
       onDoubleClick={handleDoubleClick}
       onMouseDown={handleMouseDown}
       onMouseEnter={onDragEnter}
+      onContextMenu={onContextMenu}
       draggable={false}
     >
       {isEditing ? (
@@ -68,9 +84,23 @@ function Cell({
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           className="absolute inset-0 w-full h-full px-2 border-none outline-none bg-white"
+          style={{
+            fontWeight: bold ? 'bold' : 'normal',
+            fontStyle: italic ? 'italic' : 'normal',
+            fontSize: `${fontSize}px`,
+            color
+          }}
         />
       ) : (
-        <div className="w-full h-full px-2 overflow-hidden text-sm whitespace-nowrap">
+        <div 
+          className="w-full h-full px-2 overflow-hidden whitespace-nowrap"
+          style={{
+            fontWeight: bold ? 'bold' : 'normal',
+            fontStyle: italic ? 'italic' : 'normal',
+            fontSize: `${fontSize}px`,
+            color
+          }}
+        >
           {value}
         </div>
       )}
