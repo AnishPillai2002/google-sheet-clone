@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Toolbar from './Toolbar';
 import FormulaBar from './FormulaBar';
 import Grid from './Grid';
 import FindReplaceModal from './FindReplaceModal';
+import Cell from './Cell';
+import ContextMenu from './ContextMenu';
+import DataValidationModal from './DataValidationModal';
 
 function Spreadsheet() {
   const [selectedCell, setSelectedCell] = useState(null);
@@ -10,6 +13,9 @@ function Spreadsheet() {
   const [formulaValue, setFormulaValue] = useState('');
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [selectedRange, setSelectedRange] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [showDataValidationModal, setShowDataValidationModal] = useState(false);
+  const [cellValidations, setCellValidations] = useState({});
 
   const handleCellSelect = (cellId) => {
     setSelectedCell(cellId);
@@ -80,8 +86,41 @@ function Spreadsheet() {
     }
   };
 
+  const handleContextMenu = (e, cellId) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.pageX,
+      y: e.pageY,
+      cellId
+    });
+  };
+
+  const handleContextMenuAction = useCallback((action) => {
+    if (action === 'dataValidation') {
+      setShowDataValidationModal(true);
+    }
+  }, []);
+
+  const handleDataValidationApply = (dataType) => {
+    const cellsToValidate = selectedRange ? [...selectedRange] : selectedCell ? [selectedCell] : [];
+    
+    if (cellsToValidate.length > 0) {
+      const newValidations = { ...cellValidations };
+      
+      cellsToValidate.forEach(cellId => {
+        if (cellId) {
+          newValidations[cellId] = dataType;
+        }
+      });
+      
+      setCellValidations(newValidations);
+    }
+    
+    setShowDataValidationModal(false);
+  };
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <Toolbar 
         onFormatChange={handleFormatChange}
         selectedCell={selectedCell}
@@ -102,12 +141,31 @@ function Spreadsheet() {
         onCellChange={handleCellChange}
         onGridChange={handleGridChange}
         onRangeSelect={setSelectedRange}
+        cellValidations={cellValidations}
+        onContextMenuAction={handleContextMenuAction}
       />
       {showFindReplace && (
         <FindReplaceModal
           onClose={() => setShowFindReplace(false)}
           onReplace={handleReplace}
           selectedRange={selectedRange || [selectedCell]}
+        />
+      )}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onAction={handleContextMenuAction}
+          hasSelection={true}
+        />
+      )}
+      {showDataValidationModal && (
+        <DataValidationModal
+          isOpen={true}
+          onClose={() => setShowDataValidationModal(false)}
+          onApply={handleDataValidationApply}
+          currentType={selectedCell ? cellValidations[selectedCell] || 'text' : 'text'}
         />
       )}
     </div>

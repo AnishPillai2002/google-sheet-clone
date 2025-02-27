@@ -15,11 +15,13 @@ function Cell({
   onContextMenu,
   width,
   height,
-  format = {}
+  format = {},
+  dataType = 'text'
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [validationError, setValidationError] = useState(null);
   const inputRef = useRef(null);
   const cellRef = useRef(null);
   const [mouseDownTime, setMouseDownTime] = useState(0);
@@ -32,105 +34,94 @@ function Cell({
     color = '#000000'
   } = format;
 
-  useEffect(() => {
-    setEditValue(value);
-  }, [value]);
-
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.setSelectionRange(
-        editValue.length,
-        editValue.length
-      );
+  // Validate input based on data type
+  const validateInput = (inputValue) => {
+    // Always allow empty values and formulas
+    if (!inputValue || inputValue === '' || inputValue.startsWith('=')) {
+      return true;
     }
-  }, [isEditing, editValue]);
+
+    switch (dataType) {
+      case 'number':
+        return !isNaN(Number(inputValue)) && Number.isFinite(Number(inputValue));
+      case 'date':
+        const date = new Date(inputValue);
+        return !isNaN(date.getTime());
+      case 'text':
+        return true;
+      default:
+        return true;
+    }
+  };
+
+  // Get error message based on data type
+  const getValidationErrorMessage = () => {
+    if (!validateInput(value)) {
+      switch (dataType) {
+        case 'number':
+          return 'Please enter a valid number';
+        case 'date':
+          return 'Please enter a valid date (YYYY-MM-DD)';
+        default:
+          return null;
+      }
+    }
+    return null;
+  };
+
+  // Update validation state when value or dataType changes
+  useEffect(() => {
+    if (value && !validateInput(value)) {
+      setValidationError(getValidationErrorMessage());
+    } else {
+      setValidationError(null);
+    }
+  }, [value, dataType]);
 
   const handleBlur = () => {
     setIsEditing(false);
     setShowSuggestions(false);
+    
     if (editValue !== value) {
-      onChange(editValue);
+      if (validateInput(editValue)) {
+        onChange(editValue);
+        setValidationError(null);
+      } else {
+        setValidationError(getValidationErrorMessage());
+        setEditValue(value); // Revert to previous valid value
+      }
     }
   };
 
   const handleChange = (e) => {
     const newValue = e.target.value;
     setEditValue(newValue);
-    if (newValue === '=' || newValue.match(/^=[A-Za-z]*$/)) {
+    
+    if (newValue.startsWith('=')) {
       setShowSuggestions(true);
       setSelectedSuggestionIndex(0);
     } else {
       setShowSuggestions(false);
-    }
-  };
-
-  const handleSuggestionSelect = (suggestion) => {
-    setEditValue(suggestion);
-    setShowSuggestions(false);
-    if (inputRef.current) {
-      inputRef.current.focus();
-      const cursorPos = suggestion.length;
-      inputRef.current.setSelectionRange(cursorPos, cursorPos);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      setShowSuggestions(false);
-      setIsEditing(false);
-    } else if (e.key === 'Enter') {
-      if (showSuggestions) {
-        const suggestions = Object.keys(FUNCTION_DESCRIPTIONS)
-          .filter(fn => fn.toLowerCase().startsWith(editValue.slice(1).toLowerCase()))
-          .slice(0, 5);
-        if (suggestions[selectedSuggestionIndex]) {
-          handleSuggestionSelect(`=${suggestions[selectedSuggestionIndex]}`);
-          e.preventDefault();
-        }
+      // Check validation as user types
+      if (!validateInput(newValue)) {
+        setValidationError(getValidationErrorMessage());
       } else {
-        handleBlur();
-      }
-    } else if (e.key === 'Tab' && showSuggestions) {
-      e.preventDefault();
-      const firstSuggestion = Object.keys(FUNCTION_DESCRIPTIONS)[0];
-      if (firstSuggestion) {
-        handleSuggestionSelect(`=${firstSuggestion}`);
-      }
-    } else if (showSuggestions) {
-      const suggestions = Object.keys(FUNCTION_DESCRIPTIONS)
-        .filter(fn => fn.toLowerCase().startsWith(editValue.slice(1).toLowerCase()))
-        .slice(0, 5);
-      
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedSuggestionIndex(prev => 
-          prev < suggestions.length - 1 ? prev + 1 : prev
-        );
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedSuggestionIndex(prev => 
-          prev > 0 ? prev - 1 : prev
-        );
+        setValidationError(null);
       }
     }
   };
 
-  const handleMouseDown = (e) => {
-    if (e.button === 0) { // Left click only
-      setMouseDownTime(Date.now());
-      onDragStart();
-    }
+  // Check if current value matches data type
+  const hasDataTypeMismatch = () => {
+    return value && !validateInput(value);
   };
 
-  const handleClick = (e) => {
-    const clickDuration = Date.now() - mouseDownTime;
-    
-    // If it's a quick click (not a drag), start editing
-    if (clickDuration < 200) {
-      onSelect();
-      setIsEditing(true);
+  // Get text color based on validation
+  const getTextColor = () => {
+    if (hasDataTypeMismatch()) {
+      return '#dc2626'; // red-600
     }
+    return color;
   };
 
   return (
@@ -145,39 +136,68 @@ function Cell({
         width: `${width}px`,
         height: `${height}px`,
       }}
-      onClick={handleClick}
-      onMouseDown={handleMouseDown}
-      onMouseEnter={onDragEnter}
+      onClick={() => {
+        onSelect();
+        setIsEditing(true);
+      }}
+      onMouseDown={(e) => {
+        if (e.button === 0) {
+          setMouseDownTime(Date.now());
+          onDragStart();
+        }
+      }}
+      onMouseEnter={() => onDragEnter()}
       onContextMenu={onContextMenu}
       draggable={false}
     >
+      {/* Data type indicator - increased size */}
+      {hasDataTypeMismatch() && (
+        <div 
+          className="absolute top-0 right-0 w-0 h-0 
+                     border-t-[10px] border-t-red-500 
+                     border-l-[10px] border-l-transparent z-10"
+          title={`Expected ${dataType} type`}
+        />
+      )}
+
+      {/* Main cell content */}
       {isEditing ? (
         <>
           <input
             ref={inputRef}
-            type="text"
+            type={dataType === 'date' ? 'date' : 'text'}
             value={editValue}
             onChange={handleChange}
             onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleBlur();
+              if (e.key === 'Escape') {
+                setEditValue(value);
+                setIsEditing(false);
+                setValidationError(null);
+              }
+            }}
             className="absolute inset-0 w-full h-full px-2 border-none outline-none bg-white text-left"
             style={{
               fontWeight: bold ? 'bold' : 'normal',
               fontStyle: italic ? 'italic' : 'normal',
               fontSize: `${fontSize}px`,
-              color
+              color: getTextColor()
             }}
           />
           {showSuggestions && (
             <FunctionSuggestions
               query={editValue}
-              onSelect={handleSuggestionSelect}
+              onSelect={(suggestion) => {
+                setEditValue(suggestion);
+                setShowSuggestions(false);
+              }}
               selectedIndex={selectedSuggestionIndex}
               position={{
                 top: cellRef.current?.getBoundingClientRect().top || 0,
                 left: cellRef.current?.getBoundingClientRect().left || 0,
-                height: height,
-                width: width
+                height,
+                width
               }}
             />
           )}
@@ -189,10 +209,47 @@ function Cell({
             fontWeight: bold ? 'bold' : 'normal',
             fontStyle: italic ? 'italic' : 'normal',
             fontSize: `${fontSize}px`,
-            color
+            color: getTextColor()
           }}
         >
           {displayValue}
+        </div>
+      )}
+
+      {/* Error message bubble - with increased width */}
+      {isSelected && validationError && (
+        <div 
+          className="absolute left-full top-0 ml-2
+                     bg-white border border-gray-200 shadow-sm
+                     rounded-md z-50 flex items-stretch"
+          style={{
+            height: `${Math.max(height + 10, 32)}px`, // Minimum height of 32px
+            width: '250px', // Increased fixed width
+            padding: '2px 0',
+          }}
+        >
+          {/* Red indicator bar */}
+          <div className="w-1.5 bg-red-500 rounded-l-md flex-shrink-0" />
+          
+          {/* Error message container */}
+          <div className="flex-1 flex items-center px-3 min-w-0">
+            {/* Error icon */}
+            <svg 
+              className="w-4 h-4 text-red-500 mr-2 flex-shrink-0" 
+              fill="currentColor" 
+              viewBox="0 0 20 20"
+            >
+              <path 
+                fillRule="evenodd" 
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" 
+                clipRule="evenodd" 
+              />
+            </svg>
+            {/* Error text - removed truncate to show full text */}
+            <span className="text-sm text-gray-700 break-normal">
+              {validationError}
+            </span>
+          </div>
         </div>
       )}
     </div>

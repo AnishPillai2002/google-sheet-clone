@@ -5,7 +5,7 @@ import ResizeHandle from './ResizeHandle';
 import { spreadsheetFunctions } from '../utils/spreadsheetFunctions';
 import DeleteDuplicatesModal from './DeleteDuplicatesModal';
 
-function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange, onRangeSelect }) {
+function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange, onRangeSelect, cellValidations = {}, onContextMenuAction }) {
   const ROWS = 100;
   const COLS = 26; // A to Z
 
@@ -130,7 +130,8 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
     e.preventDefault();
     setContextMenu({ x: e.pageX, y: e.pageY });
     setContextCell(cellId);
-  }, []);
+    onCellSelect(cellId);
+  }, [onCellSelect]);
 
   const handleContextAction = useCallback((action) => {
     if (!contextCell) return;
@@ -139,6 +140,11 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
     const newCellData = { ...cellData };
     
     switch (action) {
+      case 'dataValidation':
+        // Forward the action to parent component
+        onContextMenuAction(action);
+        break;
+
       case 'insertRowBelow': {
         // First preserve the selected row's data
         const selectedRowData = {};
@@ -280,10 +286,10 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
       }
     }
     
-    if (action !== 'deleteDuplicates') {
+    if (action !== 'dataValidation' && action !== 'deleteDuplicates') {
       onGridChange(newCellData);
     }
-  }, [contextCell, cellData, onGridChange, ROWS, COLS, selectedCell, onCellSelect, selectedRange, onRangeSelect]);
+  }, [contextCell, cellData, onGridChange, onContextMenuAction]);
 
   const handleResizeStart = useCallback((type, index, e) => {
     e.preventDefault();
@@ -449,6 +455,7 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
                   onContextMenu={(e) => handleContextMenu(e, cellId)}
                   width={getColumnWidth(col)}
                   height={getRowHeight(row)}
+                  dataType={cellValidations[cellId] || 'text'}
                 />
               );
             })}
@@ -459,9 +466,12 @@ function Grid({ selectedCell, cellData, onCellSelect, onCellChange, onGridChange
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
+          onClose={() => {
+            setContextMenu(null);
+            setContextCell(null);
+          }}
           onAction={handleContextAction}
-          hasSelection={selectedRange?.length > 0}
+          hasSelection={true}
         />
       )}
       {showDeleteDuplicatesModal && (
