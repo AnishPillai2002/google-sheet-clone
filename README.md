@@ -2,6 +2,8 @@
 
 A modern Excel-like spreadsheet application built with React, featuring real-time formula evaluation, cell formatting, and data manipulation capabilities.
 
+**Video Demo:** https://www.loom.com/share/51dd1c0c0c6e4fcc92187f65006478d4?sid=ad61d1fb-cf1d-4cd9-96e2-5f9693673e0d
+
 ## 🌟 Core Features
 
 ### Cell Management

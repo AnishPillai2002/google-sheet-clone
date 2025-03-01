@@ -89,6 +89,7 @@ function Spreadsheet() {
 
   const handleContextMenu = (e, cellId) => {
     e.preventDefault();
+    setSelectedCell(cellId);
     setContextMenu({
       x: e.pageX,
       y: e.pageY,
@@ -96,28 +97,62 @@ function Spreadsheet() {
     });
   };
 
-  const handleContextMenuAction = useCallback((action) => {
-    if (action === 'dataValidation') {
-      setShowDataValidationModal(true);
+  const handleContextMenuAction = (action) => {
+    switch (action) {
+      case 'dataValidation':
+        setShowDataValidationModal(true);
+        break;
+      // Add other cases for different context menu actions
     }
-  }, []);
+    setContextMenu(null);
+  };
 
   const handleDataValidationApply = (dataType) => {
-    const cellsToValidate = selectedRange ? [...selectedRange] : selectedCell ? [selectedCell] : [];
-    
-    if (cellsToValidate.length > 0) {
+    if (selectedCell || selectedRange) {
+      const cellsToUpdate = selectedRange || [selectedCell];
       const newValidations = { ...cellValidations };
-      
-      cellsToValidate.forEach(cellId => {
+      const newCellData = { ...cellData };
+
+      cellsToUpdate.forEach(cellId => {
         if (cellId) {
+          // Update the validation type for the cell
           newValidations[cellId] = dataType;
+
+          // Clear the cell value if it doesn't match the new type
+          const currentValue = cellData[cellId]?.value;
+          if (currentValue && !validateDataType(currentValue, dataType)) {
+            newCellData[cellId] = {
+              ...newCellData[cellId],
+              value: '',
+              displayValue: ''
+            };
+          }
         }
       });
-      
+
       setCellValidations(newValidations);
+      setCellData(newCellData);
     }
-    
     setShowDataValidationModal(false);
+  };
+
+  // Helper function to validate data type
+  const validateDataType = (value, type) => {
+    if (!value || value === '' || value.startsWith('=')) {
+      return true;
+    }
+
+    switch (type) {
+      case 'number':
+        return !isNaN(Number(value)) && Number.isFinite(Number(value));
+      case 'date':
+        const date = new Date(value);
+        return !isNaN(date.getTime());
+      case 'text':
+        return true;
+      default:
+        return true;
+    }
   };
 
   const handleSave = () => {
@@ -283,7 +318,7 @@ function Spreadsheet() {
         onGridChange={handleGridChange}
         onRangeSelect={setSelectedRange}
         cellValidations={cellValidations}
-        onContextMenuAction={handleContextMenuAction}
+        onContextMenu={handleContextMenu}
       />
       {showFindReplace && (
         <FindReplaceModal
@@ -298,7 +333,7 @@ function Spreadsheet() {
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
           onAction={handleContextMenuAction}
-          hasSelection={true}
+          hasSelection={!!selectedCell}
         />
       )}
       {showDataValidationModal && (

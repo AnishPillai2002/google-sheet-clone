@@ -19,7 +19,7 @@ function Cell({
   dataType = 'text'
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
+  const [editValue, setEditValue] = useState(value || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [validationError, setValidationError] = useState(null);
   const inputRef = useRef(null);
@@ -43,7 +43,8 @@ function Cell({
 
     switch (dataType) {
       case 'number':
-        return !isNaN(Number(inputValue)) && Number.isFinite(Number(inputValue));
+        const num = Number(inputValue);
+        return !isNaN(num) && Number.isFinite(num);
       case 'date':
         const date = new Date(inputValue);
         return !isNaN(date.getTime());
@@ -54,7 +55,6 @@ function Cell({
     }
   };
 
-  // Get error message based on data type
   const getValidationErrorMessage = () => {
     if (!validateInput(value)) {
       switch (dataType) {
@@ -78,6 +78,17 @@ function Cell({
     }
   }, [value, dataType]);
 
+  // Update editValue when value prop changes
+  useEffect(() => {
+    setEditValue(value || '');
+  }, [value]);
+
+  const handleClick = () => {
+    onSelect();
+    setIsEditing(true);
+    // Don't reset the editValue here, keep the existing value
+  };
+
   const handleBlur = () => {
     setIsEditing(false);
     setShowSuggestions(false);
@@ -88,7 +99,7 @@ function Cell({
         setValidationError(null);
       } else {
         setValidationError(getValidationErrorMessage());
-        setEditValue(value); // Revert to previous valid value
+        setEditValue(value || ''); // Revert to previous valid value
       }
     }
   };
@@ -97,17 +108,41 @@ function Cell({
     const newValue = e.target.value;
     setEditValue(newValue);
     
+    // Show formula suggestions
     if (newValue.startsWith('=')) {
       setShowSuggestions(true);
-      setSelectedSuggestionIndex(0);
     } else {
       setShowSuggestions(false);
-      // Check validation as user types
+      // Validate input as user types
       if (!validateInput(newValue)) {
         setValidationError(getValidationErrorMessage());
       } else {
         setValidationError(null);
       }
+    }
+  };
+
+  // Format display value based on data type
+  const getFormattedValue = (val) => {
+    if (!val || val.startsWith('=')) return val;
+    
+    switch (dataType) {
+      case 'date':
+        try {
+          const date = new Date(val);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+          }
+        } catch (e) {}
+        return val;
+      case 'number':
+        const num = Number(val);
+        if (!isNaN(num)) {
+          return num.toString();
+        }
+        return val;
+      default:
+        return val;
     }
   };
 
@@ -136,10 +171,7 @@ function Cell({
         width: `${width}px`,
         height: `${height}px`,
       }}
-      onClick={() => {
-        onSelect();
-        setIsEditing(true);
-      }}
+      onClick={handleClick}
       onMouseDown={(e) => {
         if (e.button === 0) {
           setMouseDownTime(Date.now());
@@ -147,7 +179,11 @@ function Cell({
         }
       }}
       onMouseEnter={() => onDragEnter()}
-      onContextMenu={onContextMenu}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setShowSuggestions(false);
+        onContextMenu(e);
+      }}
       draggable={false}
     >
       {/* Data type indicator - increased size */}
@@ -170,11 +206,15 @@ function Cell({
             onChange={handleChange}
             onBlur={handleBlur}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleBlur();
+              if (e.key === 'Enter') {
+                handleBlur();
+                setShowSuggestions(false);
+              }
               if (e.key === 'Escape') {
-                setEditValue(value);
+                setEditValue(value || '');
                 setIsEditing(false);
                 setValidationError(null);
+                setShowSuggestions(false);
               }
             }}
             className="absolute inset-0 w-full h-full px-2 border-none outline-none bg-white text-left"
@@ -184,6 +224,7 @@ function Cell({
               fontSize: `${fontSize}px`,
               color: getTextColor()
             }}
+            autoComplete="off"
           />
           {showSuggestions && (
             <FunctionSuggestions
@@ -212,7 +253,7 @@ function Cell({
             color: getTextColor()
           }}
         >
-          {displayValue}
+          {getFormattedValue(displayValue || value) || ''}
         </div>
       )}
 
